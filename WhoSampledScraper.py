@@ -1,44 +1,53 @@
 """
-File: WhoSampledScraper
+File: WhoSampledScraper.py
 Author: Brad Jobe
 Version: 1.0
 
 Scrapes relevant HTML content from an artist's track page
-"""
 
+Current problems:
+    Doesn't handle redirects properly
+    Doesn't find other sample info about a track
+    need to cache already found track titles
+    Code needs to be better formatted
+"""
 import sys
 import eyed3
 import urllib2
 from lxml import html
 
-SONG_ARG = sys.argv[1];
-URL_WHOSAMPLED = "http://www.whosampled.com"
+class WhoSampledScraper:
 
-songfile = eyed3.load(SONG_ARG)
+    URL_WHOSAMPLED = "http://www.whosampled.com"
 
-artistName = songfile.tag.artist
-songTitle = songfile.tag.title
+    artistName = None
+    songTitle = None
+    whoSampledURL = None
+    sampleList = []
 
-print "\nArtist: " + artistName
-print "Track: " + songTitle
+    def __init__(self, songLoc):
+        songfile = eyed3.load(songLoc)
+        self.artistName = songfile.tag.artist
+        self.songTitle = songfile.tag.title
+        self.whoSampledURL = self.URL_WHOSAMPLED + "/" + self.artistName.replace(" ", "-") + "/" + self.songTitle.replace(" ", "-")
 
-artistName = artistName.replace(" ", "-")
-songTitle = songTitle.replace(" ", "-")
+    def getSongsSampled(self):
+        return self.sampleScraper(self.artistName, self.songTitle, "songsSampled")
 
-whoSampledURL = URL_WHOSAMPLED + "/" + artistName + "/" + songTitle
+    def getWhoSampled(self):
+        return self.sampleScraper(self.artistName, self.songTitle, "whoSampled")
 
-whoSampledHTML = (urllib2.urlopen(whoSampledURL)).read()
-whoSampledDoc = html.document_fromstring(whoSampledHTML)
+    def sampleScraper(self, artistName, songTitle, calltype):
+        whoSampledHTML = (urllib2.urlopen(self.whoSampledURL)).read()
+        whoSampledDoc = html.document_fromstring(whoSampledHTML)
 
-artistNamesFromSamples = whoSampledDoc.find_class("trackArtist")
-songNamesFromSamples = whoSampledDoc.find_class("trackName")
+        if calltype == "songsSampled":
+            artistNamesFromSamples = whoSampledDoc.find_class("trackArtist")
+            songTitlesFromSamples = whoSampledDoc.find_class("trackName")
+            if len(artistNamesFromSamples) != len(songTitlesFromSamples) or len(artistNamesFromSamples) < 1:
+                return None
 
-print "-----------------------------------------"
+            for i in range(0, len(artistNamesFromSamples)):
+                self.sampleList.append(songTitlesFromSamples[i].text_content() + " " +  artistNamesFromSamples[i].text_content())
 
-if len(songNamesFromSamples) == 0:
-    print "No samples were found for the given track"
-else:
-    print "Samples:"
-    for i in range(0, len(songNamesFromSamples)):
-        print "\t" + songNamesFromSamples[i].text_content()
-        print "\t" + artistNamesFromSamples[i].text_content()
+            return self.sampleList
