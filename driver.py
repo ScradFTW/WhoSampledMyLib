@@ -8,5 +8,9 @@ print "-------------------------------------------"
 
 sampleList = wss.getSongsSampled()
 
+if sampleList == None:
+    print "The sample list could not be found"
+    sys.exit()
+
 for song in sampleList:
     print song
