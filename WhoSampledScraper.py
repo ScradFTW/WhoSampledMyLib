@@ -1,7 +1,7 @@
 """
 File: WhoSampledScraper.py
 Author: Brad Jobe
-Version: 1.1
+Version: 1.0.1
 
 Scrapes relevant HTML content from an artist's track page
 
