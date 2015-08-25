@@ -6,7 +6,6 @@ Version: 1.0
 Scrapes relevant HTML content from an artist's track page
 
 Current problems:
-    Doesn't handle redirects properly
     Doesn't find other sample info about a track
     need to cache already found track titles
     Code needs to be better formatted
@@ -22,60 +21,88 @@ class WhoSampledScraper:
     URL_WHOSAMPLED = "www.whosampled.com"
     HTTP_PROTO = "http://"
     HTTP_REDIRECT = "3"
+    SONGS_SAMPLED = 0
+    WHO_SAMPLED = 2
 
     whoSampledPath = None
     artistName = None
     songTitle = None
     sampleList = []
+    whoSampledHTML = None
+
 
     def __init__(self, songLoc):
         songfile = eyed3.load(songLoc)
         self.artistName = songfile.tag.artist
         self.songTitle = songfile.tag.title
         self.whoSampledPath = ("/" + self.artistName + "/" + \
-                             self.songTitle).replace(" ", "-")
+                             self.songTitle + "/").replace(" ", "-")
+
+
     def getSongsSampled(self):
         return self.sampleScraper(self.artistName, self.songTitle, \
                                   "songsSampled")
+
 
     def getWhoSampled(self):
         return self.sampleScraper(self.artistName, self.songTitle, \
                                   "whoSampled")
 
 
-    def sampleScraper(self, artistName, songTitle, calltype):
+    def getHTMLFromPath(self):
+        urlCheck = urllib2.urlopen(self.HTTP_PROTO + \
+                        self.URL_WHOSAMPLED + \
+                        self.whoSampledPath)
         try:
-            if self.getStatusCode(self.URL_WHOSAMPLED, self.whoSampledPath)[0] \
-                == self.HTTP_REDIRECT:
-                    raise RedirectException()
+            if urlCheck.geturl().lower() != (self.HTTP_PROTO + \
+                            self.URL_WHOSAMPLED + \
+                            self.whoSampledPath).lower():
+                raise RedirectException()
+
         except RedirectException:
-            print "The URL to " + self.songTitle + " by " + \
-                    artistName + " was redirected."
+            print "The URL of " + self.songTitle + " by " + self.artistName + \
+                " was redirected."
+            return None
 
-        whoSampledHTML = (urllib2.urlopen(self.HTTP_PROTO + \
-                          self.URL_WHOSAMPLED + \
-                          self.whoSampledPath)).read()
+        return urlCheck.read()
 
-        whoSampledDoc = html.document_fromstring(whoSampledHTML)
+    def sampleScraper(self, artistName, songTitle, calltype):
+        if self.whoSampledHTML == None:
+            self.whoSampledHTML = self.getHTMLFromPath()
+
+        if self.whoSampledHTML== None:
+            return None
+
+        splitHTML = self.whoSampledHTML.split("<span Was sampled")
 
         if calltype == "songsSampled":
-            artistNamesFromSamples = whoSampledDoc.find_class("trackArtist")
-            songTitlesFromSamples = whoSampledDoc.find_class("trackName")
-            if len(artistNamesFromSamples) != len(songTitlesFromSamples) \
-                or len(artistNamesFromSamples) < 1:
+            whoSampledDoc = html.document_fromstring( \
+                    splitHTML[self.SONGS_SAMPLED])
+
+        elif calltype == "whoSampled":
+            whoSampledDoc = html.document_fromstring( \
+                    splitHTML[self.WHO_SAMPLED])
+
+        artistNamesSamples = whoSampledDoc.find_class("trackArtist")
+        songTitlesSamples = whoSampledDoc.find_class("trackName")
+
+        if len(artistNamesSamples) != len(songTitlesSamples) \
+                or len(artistNamesSamples) < 1:
                 return None
 
-            for i in range(0, len(artistNamesFromSamples)):
-                self.sampleList.append( \
-                        songTitlesFromSamples[i].text_content() + " " + \
-                        artistNamesFromSamples[i].text_content())
+        for i in range(0, len(artistNamesSamples)):
+            self.sampleList.append( \
+                    songTitlesSamples[i].text_content() + " " + \
+                    artistNamesSamples[i].text_content())
 
-            return self.sampleList
+        return self.sampleList
+
 
     def getStatusCode(self, host, path):
         conn = httplib.HTTPConnection(host)
         conn.request("HEAD", path)
         return str(conn.getresponse().status)
+
 
 class RedirectException(Exception):
     pass
