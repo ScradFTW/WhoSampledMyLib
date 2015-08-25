@@ -1,12 +1,11 @@
 """
 File: WhoSampledScraper.py
 Author: Brad Jobe
-Version: 1.0
+Version: 1.1
 
 Scrapes relevant HTML content from an artist's track page
 
 Current problems:
-    Doesn't find other sample info about a track
     need to cache already found track titles
     Code needs to be better formatted
 """
@@ -33,8 +32,16 @@ class WhoSampledScraper:
 
     def __init__(self, songLoc):
         songfile = eyed3.load(songLoc)
-        self.artistName = songfile.tag.artist
-        self.songTitle = songfile.tag.title
+
+        try:
+            self.artistName = songfile.tag.artist
+            self.songTitle = songfile.tag.title
+
+            if self.artistName == None or self.songTitle == None:
+                raise MissingTagException()
+        except MissingTagException:
+            print "audiofile at " + songLoc + " has missing tag information"
+
         self.whoSampledPath = ("/" + self.artistName + "/" + \
                              self.songTitle + "/").replace(" ", "-")
 
@@ -105,4 +112,8 @@ class WhoSampledScraper:
 
 
 class RedirectException(Exception):
+    pass
+
+
+class MissingTagException(Exception):
     pass
