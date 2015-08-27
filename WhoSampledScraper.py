@@ -15,6 +15,8 @@ import urllib2
 from lxml import html
 import httplib
 
+
+
 class WhoSampledScraper:
 
     URL_WHOSAMPLED = "www.whosampled.com"
@@ -23,17 +25,19 @@ class WhoSampledScraper:
     SONGS_SAMPLED = 0
     WHO_SAMPLED = 2
 
-    whoSampledPath = None
-    artistName = None
-    songTitle = None
-    sampleList = []
-    whoSampledHTML = None
-
-
     def __init__(self, songLoc):
+        """
+        Parses a songfile for the artist and title ID3 tags and creates the
+        theoretical path for the songfile's samplepage.
+
+        Param: The directory path to a song file, as a string.
+        Throws: MissingTagException if tag(s) could not be found.
+        """
         songfile = eyed3.load(songLoc)
 
         try:
+            self.whoSampledHTML = None
+            self.sampleList = []
             self.artistName = songfile.tag.artist
             self.songTitle = songfile.tag.title
 
@@ -47,16 +51,26 @@ class WhoSampledScraper:
 
 
     def getSongsSampled(self):
-        return self.sampleScraper(self.artistName, self.songTitle, \
-                                  "songsSampled")
+        """
+        Returns a list of songs that were sampled in the given track.
+        """
+        return self.sampleScraper("songsSampled")
 
 
     def getWhoSampled(self):
-        return self.sampleScraper(self.artistName, self.songTitle, \
-                                  "whoSampled")
+        """
+        Returns a list of songs that have used the given track as a sample.
+        """
+        return self.sampleScraper("whoSampled")
 
 
     def getHTMLFromPath(self):
+        """
+        Returns the html content from the song's sample page.
+
+        Throws: RedirectException if the url is redirected away from the
+                predicted path of the songs's sample page.
+        """
         urlCheck = urllib2.urlopen(self.HTTP_PROTO + \
                         self.URL_WHOSAMPLED + \
                         self.whoSampledPath)
@@ -65,7 +79,6 @@ class WhoSampledScraper:
                             self.URL_WHOSAMPLED + \
                             self.whoSampledPath).lower():
                 raise RedirectException()
-
         except RedirectException:
             print "The URL of " + self.songTitle + " by " + self.artistName + \
                 " was redirected."
@@ -73,12 +86,16 @@ class WhoSampledScraper:
 
         return urlCheck.read()
 
-    def sampleScraper(self, artistName, songTitle, calltype):
+    def sampleScraper(self, calltype):
+        """
+        Scrapes sample data from the song's sample page.
+
+        Params: a string of specifying what type of sample data is to be
+                scraped from the sample page.
+        Returns: a list of song samples, as strings
+        """
         if self.whoSampledHTML == None:
             self.whoSampledHTML = self.getHTMLFromPath()
-
-        if self.whoSampledHTML== None:
-            return None
 
         splitHTML = self.whoSampledHTML.split("<span Was sampled")
 
@@ -86,9 +103,11 @@ class WhoSampledScraper:
             whoSampledDoc = html.document_fromstring( \
                     splitHTML[self.SONGS_SAMPLED])
 
-        elif calltype == "whoSampled":
+        elif calltype == "whoSampled" and len(splitHTML) > 1:
             whoSampledDoc = html.document_fromstring( \
                     splitHTML[self.WHO_SAMPLED])
+        elif len(splitHTML) <= 1:
+            return None
 
         artistNamesSamples = whoSampledDoc.find_class("trackArtist")
         songTitlesSamples = whoSampledDoc.find_class("trackName")
@@ -103,12 +122,6 @@ class WhoSampledScraper:
                     artistNamesSamples[i].text_content())
 
         return self.sampleList
-
-
-    def getStatusCode(self, host, path):
-        conn = httplib.HTTPConnection(host)
-        conn.request("HEAD", path)
-        return str(conn.getresponse().status)
 
 
 class RedirectException(Exception):
