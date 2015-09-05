@@ -14,8 +14,7 @@ import eyed3
 import urllib2
 from lxml import html
 import httplib
-
-
+import simplejson as json
 
 class WhoSampledScraper:
 
@@ -37,9 +36,9 @@ class WhoSampledScraper:
 
         try:
             self.whoSampledHTML = None
-            self.sampleList = []
             self.artistName = songfile.tag.artist
             self.songTitle = songfile.tag.title
+            self.sampleJSON = {}
 
             if self.artistName == None or self.songTitle == None:
                 raise MissingTagException()
@@ -48,6 +47,9 @@ class WhoSampledScraper:
 
         self.whoSampledPath = ("/" + self.artistName + "/" + \
                              self.songTitle + "/").replace(" ", "-")
+        self.sampleJSON[self.whoSampledPath] = { "songsSampled":{}, \
+                                                 "whoSampled": {}    \
+                                                }
 
 
     def getSongsSampled(self):
@@ -92,7 +94,7 @@ class WhoSampledScraper:
 
         Params: a string of specifying what type of sample data is to be
                 scraped from the sample page.
-        Returns: a list of song samples, as strings
+        Returns: a list of song samples, as strings, or an empty list.
         """
         if self.whoSampledHTML == None:
             self.whoSampledHTML = self.getHTMLFromPath()
@@ -116,12 +118,14 @@ class WhoSampledScraper:
                 or len(artistNamesSamples) < 1:
                 return None
 
-        for i in range(0, len(artistNamesSamples)):
-            self.sampleList.append( \
-                    songTitlesSamples[i].text_content() + " " + \
-                    artistNamesSamples[i].text_content())
 
-        return self.sampleList
+        for i in range(0, len(artistNamesSamples)):
+            a = artistNamesSamples[i].text_content()
+            s = songTitlesSamples[i].text_content()
+
+            self.sampleJSON[self.whoSampledPath][calltype][a] = s
+
+        return self.sampleJSON
 
 
 class RedirectException(Exception):
