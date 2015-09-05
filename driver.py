@@ -10,18 +10,23 @@ print "-------------------------------------------"
 
 sampleList = wss.getSongsSampled()
 
+print "-> Songs sampled in the track --"
 if sampleList == None:
     print "The sample list could not be found"
-    sys.exit()
+else:
+    for song in sampleList:
+        print song
 
-for song in sampleList:
-    print song
+print "------------------------------------------\n"
+
+print "->Songs that sample the track --"
 
 sampleList = wss.getWhoSampled()
 
 if sampleList == None:
     print "The sample list could not be found"
-    sys.exit()
+else:
+    for song in sampleList:
+        print song
 
-for song in sampleList:
-    print song
+print "------------------------------------------"
