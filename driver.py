@@ -19,7 +19,7 @@ else:
 
 print "------------------------------------------\n"
 
-print "->Songs that sample the track --"
+print "-> Songs that sample the track --"
 
 sampleList = wss.getWhoSampled()
 

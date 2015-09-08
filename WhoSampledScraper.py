@@ -14,7 +14,8 @@ import eyed3
 import urllib2
 from lxml import html
 import httplib
-import simplejson as json
+import json
+import pprint
 
 class WhoSampledScraper:
 
@@ -125,7 +126,24 @@ class WhoSampledScraper:
 
             self.sampleJSON[self.whoSampledPath][calltype][a] = s
 
+        self.cacheSampleData()
+
         return self.sampleJSON
+
+
+    def cacheSampleData(self):
+        with open("samples.json", "r") as inSampleFile:
+                cachedSamples = json.load(inSampleFile)
+
+        cachedSamples[self.whoSampledPath] \
+                        = self.sampleJSON[self.whoSampledPath]
+
+        inSampleFile.close()
+
+        with open('samples.json', 'w') as outSampleFile:
+                json.dump(cachedSamples, outSampleFile)
+
+        outSampleFile.close()
 
 
 class RedirectException(Exception):
