@@ -1,7 +1,9 @@
 import sys
 from WhoSampledScraper import WhoSampledScraper
 
-print sys.argv[1]
+if (len(sys.argv) != 2):
+    print "invalid number of args\nusage: python WhoSampledScraper.py [FILE]"
+    sys.exit(1)
 
 wss = WhoSampledScraper(sys.argv[1])
 

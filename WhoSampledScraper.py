@@ -1,13 +1,9 @@
 """
 File: WhoSampledScraper.py
 Author: Brad Jobe
-Version: 1.0.1
+Version: 0.0.1
 
 Scrapes relevant HTML content from an artist's track page
-
-Current problems:
-    need to cache already found track titles
-    Code needs to be better formatted
 """
 import sys
 import eyed3
@@ -15,7 +11,6 @@ import urllib2
 from lxml import html
 import httplib
 import json
-import pprint
 
 class WhoSampledScraper:
 
@@ -24,6 +19,8 @@ class WhoSampledScraper:
     HTTP_REDIRECT = "3"
     SONGS_SAMPLED = 0
     WHO_SAMPLED = 2
+    SONGS_SAMPLED_CALL = "songsSampled"
+    WHO_SAMPLED_CALL = "whoSampled"
 
     def __init__(self, songLoc):
         """
@@ -48,23 +45,22 @@ class WhoSampledScraper:
 
         self.whoSampledPath = ("/" + self.artistName + "/" + \
                              self.songTitle + "/").replace(" ", "-")
-        self.sampleJSON[self.whoSampledPath] = { "songsSampled":{}, \
-                                                 "whoSampled": {} }
-
+        self.sampleJSON[self.whoSampledPath] = { self.SONGS_SAMPLED_CALL:{}, \
+                                                 self.WHO_SAMPLED_CALL: {} }
 
     def getSongsSampled(self):
         """
         Returns a list of songs that were sampled in the given track.
         """
-        return self.sampleScraper("songsSampled")
-
+        jsonSamples = self.sampleScraper(self.SONGS_SAMPLED_CALL)
+        return self.convertJsontoList(jsonSamples)
 
     def getWhoSampled(self):
         """
         Returns a list of songs that have used the given track as a sample.
         """
-        return self.sampleScraper("whoSampled")
-
+        jsonSamples = self.sampleScraper(self.WHO_SAMPLED_CALL)
+        return self.convertJsontoList(jsonSamples)
 
     def getHTMLFromPath(self):
         """
@@ -99,41 +95,57 @@ class WhoSampledScraper:
 
         self.cachedSamples = self.loadCachedSampleData()
 
-        if (self.cachedSamples[self.whoSampledPath] == None):
-            if self.whoSampledHTML == None:
-                self.whoSampledHTML = self.getHTMLFromPath()
+        try:
+            self.cachedSamples[self.whoSampledPath] == None
+        except KeyError:
+            self.sampleJson = self.searchForSampleData(calltype)
+        else:
+            self.sampleJson = self.cachedSamples[self.whoSampledPath][calltype]
 
-            splitHTML = self.whoSampledHTML.split("<span Was sampled")
+        return self.sampleJson
 
-            if calltype == "songsSampled":
-                whoSampledDoc = html.document_fromstring( \
+    def searchForSampleData(self, calltype):
+        """
+        loads html of artist's track page on WhoSampled.com and parses it for
+        the relevant sample data.
+
+        args: specific type of sample data to parse for
+        returns: None if sample data could not be found, returns sample data
+                 in json format if successful page parse
+        """
+        if self.whoSampledHTML == None:
+            self.whoSampledHTML = self.getHTMLFromPath()
+
+        if self.whoSampledHTML == None:
+            return None
+
+        splitHTML = self.whoSampledHTML.split("<span Was sampled")
+
+        if calltype == self.SONGS_SAMPLED_CALL:
+            whoSampledDoc = html.document_fromstring( \
                         splitHTML[self.SONGS_SAMPLED])
 
-            elif calltype == "whoSampled" and len(splitHTML) > 1:
-                whoSampledDoc = html.document_fromstring( \
+        elif calltype == self.WHO_SAMPLED_CALL and len(splitHTML) > 1:
+            whoSampledDoc = html.document_fromstring( \
                                 splitHTML[self.WHO_SAMPLED])
-            elif len(splitHTML) <= 1:
-                return None
+        elif len(splitHTML) <= 1:
+            return None
 
-            artistNamesSamples = whoSampledDoc.find_class("trackArtist")
-            songTitlesSamples = whoSampledDoc.find_class("trackName")
+        artistNamesSamples = whoSampledDoc.find_class("trackArtist")
+        songTitlesSamples = whoSampledDoc.find_class("trackName")
 
-            if len(artistNamesSamples) != len(songTitlesSamples) \
+        if len(artistNamesSamples) != len(songTitlesSamples) \
                     or len(artistNamesSamples) < 1:
-                    return None
+            return None
 
-            for i in range(0, len(artistNamesSamples)):
-                a = artistNamesSamples[i].text_content()
-                s = songTitlesSamples[i].text_content()
+        for i in range(0, len(artistNamesSamples)):
+            a = artistNamesSamples[i].text_content()
+            s = songTitlesSamples[i].text_content()
+            self.sampleJSON[self.whoSampledPath][calltype][a] = s
 
-                self.sampleJSON[self.whoSampledPath][calltype][a] = s
-
-            self.cacheSampleData()
-
-        else:
-            self.sampleJson = self.cachedSamples[self.whoSampledPath]
-
+        self.cacheSampleData()
         return self.sampleJSON
+
 
     def loadCachedSampleData(self):
         """
@@ -158,10 +170,27 @@ class WhoSampledScraper:
                         = self.sampleJSON[self.whoSampledPath]
 
         with open('samples.json', 'w') as outSampleFile:
-                json.dump(cachedSamples, outSampleFile)
+                json.dump(self.cachedSamples, outSampleFile)
 
         outSampleFile.close()
 
+    def convertJsontoList(self, jsonSampleData):
+        """
+        converts JSON sampled data to a python list
+
+        args: json to be converted
+        returns: python list of converted data
+        """
+        sampleList = []
+        sampleDict = jsonSampleData
+
+        if bool(sampleDict) == False:
+            return None
+
+        for key in sampleDict:
+            sampleList.append(str(sampleDict[key]) + " " + str(key))
+
+        return sampleList
 
 class RedirectException(Exception):
     pass
